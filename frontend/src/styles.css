@@ -1,0 +1,55 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f6f8fb;
+  color: #172033;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  min-height: 100vh;
+}
+
+.panel {
+  padding: 24px;
+  background: white;
+  border-right: 1px solid #dce2ea;
+}
+
+.chat {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+input {
+  flex: 1;
+  padding: 10px;
+}
+
+button {
+  padding: 10px 14px;
+}
+
+.card {
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px solid #dce2ea;
+  border-radius: 10px;
+}
+
+.error {
+  color: #b42318;
+}
+
+.map {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: #667085;
+}
