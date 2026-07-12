@@ -1,14 +1,13 @@
 import httpx
 
+from app.domain.errors import ExternalAuthenticationError
+from app.domain.errors import ExternalRateLimitError
+from app.domain.errors import ExternalResponseError
+from app.domain.errors import ExternalServiceError
+from app.domain.errors import ExternalTimeoutError
 
-class GoogleRoutesError(Exception):
-    def __init__(self, status_code: int, detail: dict):
-        self.status_code = status_code
-        self.detail = detail
-        super().__init__(detail["message"])
 
-
-def google_routes_error_from_response(response: httpx.Response) -> GoogleRoutesError:
+def google_routes_error_from_response(response: httpx.Response) -> ExternalServiceError:
     upstream_status = response.status_code
     try:
         error_body = response.json().get("error", {})
@@ -17,13 +16,12 @@ def google_routes_error_from_response(response: httpx.Response) -> GoogleRoutesE
 
     google_status = error_body.get("status")
     google_message = error_body.get("message") or response.text
-    status_code, code, message = _status_mapping(upstream_status)
+    error_type, code, message = _status_mapping(upstream_status)
 
-    return GoogleRoutesError(
-        status_code=status_code,
-        detail={
-            "code": code,
-            "message": message,
+    return error_type(
+        code=code,
+        message=message,
+        context={
             "upstream_status": upstream_status,
             "google_status": google_status,
             "google_message": google_message,
@@ -31,52 +29,50 @@ def google_routes_error_from_response(response: httpx.Response) -> GoogleRoutesE
     )
 
 
-def google_routes_timeout_error() -> GoogleRoutesError:
-    return GoogleRoutesError(
-        status_code=504,
-        detail={
-            "code": "GOOGLE_ROUTES_TIMEOUT",
-            "message": "Google Routes request timed out.",
+def google_routes_timeout_error() -> ExternalTimeoutError:
+    return ExternalTimeoutError(
+        code="GOOGLE_ROUTES_TIMEOUT",
+        message="Google Routes request timed out.",
+        context={
             "upstream_status": None,
         },
     )
 
 
-def google_routes_request_failed_error() -> GoogleRoutesError:
-    return GoogleRoutesError(
-        status_code=502,
-        detail={
-            "code": "GOOGLE_ROUTES_REQUEST_FAILED",
-            "message": "Google Routes request failed before a valid response was received.",
+def google_routes_request_failed_error() -> ExternalServiceError:
+    return ExternalServiceError(
+        code="GOOGLE_ROUTES_REQUEST_FAILED",
+        message="Google Routes request failed before a valid response was received.",
+        context={
             "upstream_status": None,
         },
     )
 
 
-def _status_mapping(upstream_status: int) -> tuple[int, str, str]:
+def _status_mapping(upstream_status: int) -> tuple[type[ExternalServiceError], str, str]:
     detail_by_status = {
         400: (
-            400,
+            ExternalResponseError,
             "GOOGLE_ROUTES_BAD_REQUEST",
             "Google Routes rejected the route request. Check origin and destination formatting.",
         ),
         401: (
-            502,
+            ExternalAuthenticationError,
             "GOOGLE_ROUTES_UNAUTHORIZED",
             "Google Routes authentication failed. Check the server API key.",
         ),
         403: (
-            502,
+            ExternalAuthenticationError,
             "GOOGLE_ROUTES_FORBIDDEN",
             "Google Routes permission denied. Check API enablement, billing, or key restrictions.",
         ),
         404: (
-            502,
+            ExternalResponseError,
             "GOOGLE_ROUTES_NOT_FOUND",
             "Google Routes endpoint was not found.",
         ),
         429: (
-            503,
+            ExternalRateLimitError,
             "GOOGLE_ROUTES_RATE_LIMITED",
             "Google Routes rate limit or quota was exceeded.",
         ),
@@ -84,7 +80,7 @@ def _status_mapping(upstream_status: int) -> tuple[int, str, str]:
     return detail_by_status.get(
         upstream_status,
         (
-            502,
+            ExternalServiceError,
             "GOOGLE_ROUTES_UPSTREAM_ERROR",
             "Google Routes returned an upstream error.",
         ),

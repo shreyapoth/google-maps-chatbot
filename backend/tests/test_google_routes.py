@@ -2,9 +2,11 @@ import httpx
 import pytest
 
 from app.core.external_urls import EXTERNAL_URLS
+from app.domain.errors import ExternalAuthenticationError
+from app.domain.errors import ExternalResponseError
+from app.domain.routes.service import compute_basic_route
+from app.integrations.google.routes.mapper import basic_route_from_google_response
 from app.schemas.route import BasicRouteRequest, Coordinates
-from app.services.google_routes import compute_basic_route
-from app.services.google_routes_errors import GoogleRoutesError
 
 
 @pytest.mark.asyncio
@@ -67,10 +69,17 @@ async def test_compute_basic_route_raises_helpful_error_for_forbidden_response()
     )
 
     async with httpx.AsyncClient(transport=transport) as client:
-        with pytest.raises(GoogleRoutesError) as error:
+        with pytest.raises(ExternalAuthenticationError) as error:
             await compute_basic_route(request, client=client)
 
-    assert error.value.status_code == 502
-    assert error.value.detail["upstream_status"] == 403
-    assert error.value.detail["code"] == "GOOGLE_ROUTES_FORBIDDEN"
-    assert "permission" in error.value.detail["message"].lower()
+    assert error.value.context["upstream_status"] == 403
+    assert error.value.code == "GOOGLE_ROUTES_FORBIDDEN"
+    assert "permission" in error.value.message.lower()
+
+
+def test_google_routes_mapper_rejects_malformed_upstream_response():
+    with pytest.raises(ExternalResponseError) as error:
+        basic_route_from_google_response({"routes": [{"duration": "900s"}]})
+
+    assert error.value.code == "GOOGLE_ROUTES_INVALID_RESPONSE"
+    assert "invalid response" in error.value.message.lower()

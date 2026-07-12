@@ -5,12 +5,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
 
+from app.api.exception_handlers import register_exception_handlers
 from app.api.routes.route import router as route_router
+from app.core.http_client import lifespan
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Route Assistant API")
+app = FastAPI(title="Route Assistant API", lifespan=lifespan)
+register_exception_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],

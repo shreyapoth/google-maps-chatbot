@@ -1,32 +1,27 @@
 import logging
+import httpx
 from fastapi import APIRouter
-from fastapi import HTTPException
+from fastapi import Depends
+from app.core.http_client import get_http_client
+from app.domain.routes.service import compute_basic_route
 from app.schemas.route import BasicRouteResponse, BasicRouteRequest
-from app.services.google_routes_errors import GoogleRoutesError
-from app.services.google_routes import compute_basic_route
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/routes", tags=["routes"])
 
 
 @router.post("/basic", response_model=BasicRouteResponse)
-async def basic_route(route_request: BasicRouteRequest) -> BasicRouteResponse:
+async def basic_route(
+    route_request: BasicRouteRequest,
+    http_client: httpx.AsyncClient = Depends(get_http_client),
+) -> BasicRouteResponse:
     logger.info(
         "/basic.request origin_lat=%s origin_lng=%s destination=%r",
         route_request.origin.lat,
         route_request.origin.lng,
         route_request.destination,
     )
-    try:
-        route = await compute_basic_route(route_request)
-    except GoogleRoutesError as error:
-        logger.error(
-            "/basic.google_routes_error status_code=%s detail=%s",
-            error.status_code,
-            error.detail,
-        )
-        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
-
+    route = await compute_basic_route(route_request, http_client)
     logger.info(
         "/basic.response duration_minutes=%s distance_miles=%s",
         route.duration_minutes,
