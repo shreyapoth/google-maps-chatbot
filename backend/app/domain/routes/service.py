@@ -16,7 +16,10 @@ from app.integrations.google.routes.payloads import (
     build_compute_routes_payload,
     build_google_routes_headers,
 )
-from app.schemas.route import BasicRouteRequest, BasicRouteResponse
+from app.schemas.route import (
+    BasicRouteRequest,
+    BasicRouteResponse,
+)
 
 logger = logging.getLogger(__name__)
 

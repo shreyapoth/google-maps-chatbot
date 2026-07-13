@@ -1,10 +1,17 @@
 import logging
+
 import httpx
-from fastapi import APIRouter
-from fastapi import Depends
+from fastapi import (
+    APIRouter,
+    Depends,
+)
+
 from app.core.http_client import get_http_client
 from app.domain.routes.service import compute_basic_route
-from app.schemas.route import BasicRouteResponse, BasicRouteRequest
+from app.schemas.route import (
+    BasicRouteRequest,
+    BasicRouteResponse,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/routes", tags=["routes"])
@@ -25,6 +32,6 @@ async def basic_route(
     logger.info(
         "/basic.response duration_minutes=%s distance_miles=%s",
         route.duration_minutes,
-        route.distance_miles
+        route.distance_miles,
     )
     return route

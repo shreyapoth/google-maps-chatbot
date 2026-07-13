@@ -1,7 +1,9 @@
 import pytest
 
-from app.integrations.nvidia.llm_client import NVIDIA_MODEL
-from app.integrations.nvidia.llm_client import create_chat_completion
+from app.integrations.nvidia.llm_client import (
+    NVIDIA_MODEL,
+    create_chat_completion,
+)
 
 
 class FakeCompletions:

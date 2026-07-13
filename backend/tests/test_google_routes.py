@@ -2,11 +2,16 @@ import httpx
 import pytest
 
 from app.core.external_urls import EXTERNAL_URLS
-from app.domain.errors import ExternalPermissionError
-from app.domain.errors import ExternalResponseError
+from app.domain.errors import (
+    ExternalPermissionError,
+    ExternalResponseError,
+)
 from app.domain.routes.service import compute_basic_route
 from app.integrations.google.routes.mapper import basic_route_from_google_response
-from app.schemas.route import BasicRouteRequest, Coordinates
+from app.schemas.route import (
+    BasicRouteRequest,
+    Coordinates,
+)
 
 
 @pytest.mark.asyncio

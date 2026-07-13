@@ -2,9 +2,11 @@ import logging
 import time
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import (
+    FastAPI,
+    Request,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request
 
 from app.api.exception_handlers import register_exception_handlers
 from app.api.routes.google_routes import router as google_routes_router
