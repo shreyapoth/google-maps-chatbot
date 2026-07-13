@@ -1,16 +1,16 @@
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 
-from app.domain.errors import ApplicationError
-from app.domain.errors import ExternalAuthenticationError
-from app.domain.errors import ExternalRateLimitError
-from app.domain.errors import ExternalResponseError
-from app.domain.errors import ExternalServiceError
-from app.domain.errors import ExternalTimeoutError
+from app.domain.errors import (
+    ApplicationError,
+    ExternalRateLimitError,
+    ExternalServiceError,
+    ExternalTimeoutError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +22,9 @@ def register_exception_handlers(app: FastAPI) -> None:
 
 async def application_error_handler(
     request: Request,
-    error: ApplicationError,
+    error: Exception,
 ) -> JSONResponse:
-    logger.error(
-        "application_error path=%s code=%s context=%s",
-        request.url.path,
-        error.code,
-        error.context,
-    )
+    assert isinstance(error, ApplicationError)
     return JSONResponse(
         status_code=_status_code_for_application_error(error),
         content={"detail": _public_error_detail(error)},
@@ -38,10 +33,12 @@ async def application_error_handler(
 
 async def validation_error_handler(
     request: Request,
-    error: RequestValidationError,
+    error: Exception,
 ) -> JSONResponse:
+    assert isinstance(error, RequestValidationError)
     logger.warning(
-        "validation_error path=%s errors=%s",
+        "validation_error request_id=%s path=%s errors=%s",
+        getattr(request.state, "request_id", None),
         request.url.path,
         error.errors(),
     )
@@ -70,13 +67,6 @@ def _status_code_for_application_error(error: ApplicationError) -> int:
         return 503
     if isinstance(error, ExternalTimeoutError):
         return 504
-    if isinstance(
-        error,
-        (
-            ExternalAuthenticationError,
-            ExternalResponseError,
-            ExternalServiceError,
-        ),
-    ):
+    if isinstance(error, ExternalServiceError):
         return 502
     return 500

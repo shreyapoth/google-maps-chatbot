@@ -17,6 +17,10 @@ class ExternalAuthenticationError(ExternalServiceError):
     pass
 
 
+class ExternalPermissionError(ExternalServiceError):
+    pass
+
+
 class ExternalRateLimitError(ExternalServiceError):
     pass
 

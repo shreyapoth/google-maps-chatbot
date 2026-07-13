@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
-from app.api.routes import route
+from app.api.routes import google_routes
 from app.core.http_client import get_http_client
-from app.domain.errors import ExternalAuthenticationError
+from app.domain.errors import ExternalPermissionError
 from app.main import app
 from app.schemas.route import BasicRouteResponse
 
@@ -11,7 +11,7 @@ async def fake_compute_basic_route(request, client):
 
 
 def test_basic_route_endpoint(monkeypatch):
-    monkeypatch.setattr(route, "compute_basic_route", fake_compute_basic_route)
+    monkeypatch.setattr(google_routes, "compute_basic_route", fake_compute_basic_route)
     app.dependency_overrides[get_http_client] = lambda: object()
     client = TestClient(app)
 
@@ -35,7 +35,7 @@ def test_basic_route_endpoint(monkeypatch):
 
 
 async def fake_compute_basic_route_forbidden(request, client):
-    raise ExternalAuthenticationError(
+    raise ExternalPermissionError(
         code="GOOGLE_ROUTES_FORBIDDEN",
         message="Google Routes permission denied. Check API enablement, billing, or key restrictions.",
         context={
@@ -48,7 +48,7 @@ async def fake_compute_basic_route_forbidden(request, client):
 
 def test_basic_route_endpoint_returns_structured_google_error(monkeypatch):
     monkeypatch.setattr(
-        route,
+        google_routes,
         "compute_basic_route",
         fake_compute_basic_route_forbidden,
     )
@@ -74,6 +74,15 @@ def test_basic_route_endpoint_returns_structured_google_error(monkeypatch):
         "google_status": "PERMISSION_DENIED",
         "google_message": "Requests to this API are blocked.",
     }
+
+
+def test_request_id_header_is_returned():
+    client = TestClient(app)
+
+    response = client.get("/health", headers={"X-Request-ID": "test-request-id"})
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "test-request-id"
 
 
 def test_basic_route_endpoint_returns_structured_validation_error():

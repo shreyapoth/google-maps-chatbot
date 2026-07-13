@@ -1,6 +1,6 @@
 import httpx
-
 from app.domain.errors import ExternalAuthenticationError
+from app.domain.errors import ExternalPermissionError
 from app.domain.errors import ExternalRateLimitError
 from app.domain.errors import ExternalResponseError
 from app.domain.errors import ExternalServiceError
@@ -62,7 +62,7 @@ def _status_mapping(upstream_status: int) -> tuple[type[ExternalServiceError], s
             "Google Routes authentication failed. Check the server API key.",
         ),
         403: (
-            ExternalAuthenticationError,
+            ExternalPermissionError,
             "GOOGLE_ROUTES_FORBIDDEN",
             "Google Routes permission denied. Check API enablement, billing, or key restrictions.",
         ),

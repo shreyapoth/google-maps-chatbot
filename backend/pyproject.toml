@@ -22,6 +22,7 @@ pythonpath = ["."]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+namespaces = true
 
 [build-system]
 requires = ["setuptools"]
