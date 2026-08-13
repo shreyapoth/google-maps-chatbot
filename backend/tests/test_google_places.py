@@ -1,18 +1,21 @@
 import json
+
 import httpx
 import pytest
+
+from app.contracts.coordinates import Coordinates
+from app.contracts.place import PlaceNearbySearchRequest
 from app.core.external_urls import EXTERNAL_URLS
+from app.integrations.google.places.client import GooglePlaceClient
+from app.integrations.google.places.mapper import map_place_response_from_google_response
+from app.integrations.google.places.request import GOOGLE_PLACES_NEARBY_SEARCH_FIELD_MASK
 from app.service.errors import (
     ExternalRateLimitError,
     ExternalResponseError,
     ExternalServiceError,
     ExternalTimeoutError,
 )
-from app.service.places.service import search_nearby_places
-from app.integrations.google.places.mapper import map_place_response_from_google_response
-from app.integrations.google.places.request import GOOGLE_PLACES_NEARBY_SEARCH_FIELD_MASK
-from app.contracts.coordinates import Coordinates
-from app.contracts.place import PlaceNearbySearchRequest
+from app.service.places.service import GooglePlaceService
 
 
 def _nearby_request() -> PlaceNearbySearchRequest:
@@ -21,6 +24,12 @@ def _nearby_request() -> PlaceNearbySearchRequest:
         location=Coordinates(latitude=37.33, longitude=-121.89),
         radius=5000.0,
         max_results=10,
+    )
+
+
+def _place_service(http_client: httpx.AsyncClient) -> GooglePlaceService:
+    return GooglePlaceService(
+        client=GooglePlaceClient(api_key="test-api-key", client=http_client),
     )
 
 
@@ -53,7 +62,7 @@ async def test_search_nearby_places_sends_expected_request():
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
-        response = await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+        response = await _place_service(http_client).search_nearby_places(_nearby_request())
 
     assert captured["url"] == EXTERNAL_URLS["google_places_nearby_search"]
     assert captured["headers"]["X-Goog-Api-Key"]
@@ -100,7 +109,7 @@ async def test_search_nearby_places_handles_missing_optional_fields():
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
-        response = await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+        response = await _place_service(http_client).search_nearby_places(_nearby_request())
 
     place = response.places[0]
     assert place.place_id == "ChIJ123"
@@ -118,7 +127,7 @@ async def test_search_nearby_places_raises_rate_limit_error_for_429():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
         with pytest.raises(ExternalRateLimitError) as error:
-            await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+            await _place_service(http_client).search_nearby_places(_nearby_request())
 
     assert error.value.code == "GOOGLE_PLACES_RATE_LIMITED"
     assert error.value.context["upstream_status"] == 429
@@ -131,7 +140,7 @@ async def test_search_nearby_places_raises_service_error_for_500():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
         with pytest.raises(ExternalServiceError) as error:
-            await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+            await _place_service(http_client).search_nearby_places(_nearby_request())
 
     assert error.value.code == "GOOGLE_PLACES_UPSTREAM_ERROR"
     assert error.value.context["upstream_status"] == 500
@@ -144,7 +153,7 @@ async def test_search_nearby_places_raises_timeout_error_for_network_timeout():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
         with pytest.raises(ExternalTimeoutError) as error:
-            await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+            await _place_service(http_client).search_nearby_places(_nearby_request())
 
     assert error.value.code == "GOOGLE_PLACES_TIMEOUT"
     assert error.value.context["upstream_status"] is None
@@ -157,7 +166,7 @@ async def test_search_nearby_places_rejects_invalid_google_response():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
         with pytest.raises(ExternalResponseError) as error:
-            await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+            await _place_service(http_client).search_nearby_places(_nearby_request())
 
     assert error.value.code == "GOOGLE_PLACES_INVALID_RESPONSE"
 
@@ -169,7 +178,7 @@ async def test_search_nearby_places_rejects_invalid_json_body():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
         with pytest.raises(ExternalResponseError) as error:
-            await search_nearby_places(_nearby_request(), http_client, api_key="test-api-key")
+            await _place_service(http_client).search_nearby_places(_nearby_request())
 
     assert error.value.code == "GOOGLE_PLACES_INVALID_RESPONSE"
     assert error.value.context["upstream_status"] == 200

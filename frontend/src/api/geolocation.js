@@ -1,12 +1,20 @@
+const DEFAULT_LOCATION = {
+  lat: 37.7749,
+  lng: -122.4194,
+};
+
 export function getCurrentLocation() {
   console.info("[geolocation] Requesting current position");
 
   if (!navigator.geolocation) {
-    console.error("[geolocation] Browser does not support geolocation");
-    return Promise.reject(new Error("Geolocation is not supported"));
+    console.warn(
+      "[geolocation] Browser does not support geolocation; using San Francisco default",
+      DEFAULT_LOCATION
+    );
+    return Promise.resolve(DEFAULT_LOCATION);
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         console.info("[geolocation] Current position received");
@@ -16,8 +24,12 @@ export function getCurrentLocation() {
         });
       },
       (error) => {
-        console.error("[geolocation] Failed to get current position", error);
-        reject(error);
+        console.warn(
+          "[geolocation] Failed to get current position; using San Francisco default",
+          error,
+          DEFAULT_LOCATION
+        );
+        resolve(DEFAULT_LOCATION);
       }
     );
   });

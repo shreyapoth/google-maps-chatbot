@@ -13,53 +13,53 @@ from app.integrations.google.places.request import (
 
 logger = logging.getLogger(__name__)
 
-async def post_text_search(
-    client: httpx.AsyncClient,
-    request: PlaceTextSearchRequest,
-    api_key: str
-) -> httpx.Response:
-    body = build_text_search_body(request)
-    headers = build_text_search_headers(api_key)
+class GooglePlaceClient:
+    def __init__(self, api_key, client) -> None:
+        self._api_key = api_key
+        self._client = client
 
-    logger.info(
-        "google_places.nearby_search.request url=%s has_api_key=%s",
-        EXTERNAL_URLS["google_places_text_search"],
-        bool(api_key),
-    )
+    async def post_text_search(self, request: PlaceTextSearchRequest) -> httpx.Response: 
 
-    response = await client.post( 
-        EXTERNAL_URLS["google_places_text_search"],
-        json=body, 
-        headers=headers)
-    
-    logger.info("google_places.nearby_search.response status=%s", response.status_code)
-    response.raise_for_status()
+        body = build_text_search_body(request)
+        headers = build_text_search_headers(self._api_key)
 
-    return response 
+        logger.info(
+            "google_places.text_search.request url=%s has_api_key=%s",
+            EXTERNAL_URLS["google_places_text_search"],
+            bool(self._api_key),
+        )
+
+        response = await self._client.post(
+            EXTERNAL_URLS["google_places_text_search"],
+            json=body,
+            headers=headers,
+        )
+
+        logger.info("google_places.text_search.response status=%s", response.status_code)
+        response.raise_for_status()
+
+        return response 
 
 
 
-async def post_nearby_search(
-    client: httpx.AsyncClient,
-    request: PlaceNearbySearchRequest,
-    api_key: str,
-) -> httpx.Response:
-    body = build_nearby_search_body(request)
-    headers = build_nearby_search_headers(api_key)
+    async def post_nearby_search(self, request: PlaceNearbySearchRequest) ->httpx.Response:
 
-    logger.info(
-        "google_places.nearby_search.request url=%s has_api_key=%s",
-        EXTERNAL_URLS["google_places_nearby_search"],
-        bool(api_key),
-    )
+        body = build_nearby_search_body(request)
+        headers = build_nearby_search_headers(self._api_key)
 
-    response = await client.post(
-        EXTERNAL_URLS["google_places_nearby_search"],
-        json=body,
-        headers=headers,
-    )
+        logger.info(
+            "google_places.nearby_search.request url=%s has_api_key=%s",
+            EXTERNAL_URLS["google_places_nearby_search"],
+            bool(self._api_key),
+        )
 
-    logger.info("google_places.nearby_search.response status=%s", response.status_code)
-    response.raise_for_status()
-    
-    return response
+        response = await self._client.post(
+            EXTERNAL_URLS["google_places_nearby_search"],
+            json=body,
+            headers=headers,
+        )
+
+        logger.info("google_places.nearby_search.response status=%s", response.status_code)
+        response.raise_for_status()
+        
+        return response
