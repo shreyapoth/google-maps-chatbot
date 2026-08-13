@@ -8,11 +8,12 @@ from pydantic_settings import (
 )
 
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",
+        extra="ignore"
     )
 
     google_maps_server_key: SecretStr

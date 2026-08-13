@@ -2,13 +2,13 @@ import httpx
 import pytest
 
 from app.core.external_urls import EXTERNAL_URLS
-from app.domain.errors import (
+from app.service.errors import (
     ExternalPermissionError,
     ExternalResponseError,
 )
-from app.domain.routes.service import compute_basic_route
+from app.service.routes.service import compute_basic_route
 from app.integrations.google.routes.mapper import basic_route_from_google_response
-from app.schemas.route import (
+from app.contracts.route import (
     BasicRouteRequest,
     Coordinates,
 )
@@ -42,7 +42,7 @@ async def test_compute_basic_route_converts_google_response():
     )
 
     async with httpx.AsyncClient(transport=transport) as client:
-        route = await compute_basic_route(request, client=client)
+        route = await compute_basic_route(request, client=client, api_key="test-api-key")
 
     assert route.duration_minutes == 15
     assert route.distance_miles == 2.0
@@ -75,7 +75,7 @@ async def test_compute_basic_route_raises_helpful_error_for_forbidden_response()
 
     async with httpx.AsyncClient(transport=transport) as client:
         with pytest.raises(ExternalPermissionError) as error:
-            await compute_basic_route(request, client=client)
+            await compute_basic_route(request, client=client, api_key="test-api-key")
 
     assert error.value.context["upstream_status"] == 403
     assert error.value.code == "GOOGLE_ROUTES_FORBIDDEN"

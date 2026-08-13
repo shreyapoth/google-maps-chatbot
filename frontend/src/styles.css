@@ -47,6 +47,33 @@ button {
   color: #b42318;
 }
 
+.nearby-panel {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #dce2ea;
+}
+
+.nearby-label {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: #667085;
+}
+
+.nearby-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nearby-result {
+  display: grid;
+  gap: 8px;
+}
+
+.nearby-result .card {
+  margin-top: 0;
+}
+
 .map {
   display: grid;
   place-content: center;

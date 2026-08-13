@@ -4,7 +4,10 @@ import logging
 
 import httpx
 
-from app.core.config import settings
+from app.contracts.route import (
+    BasicRouteRequest,
+    BasicRouteResponse,
+)
 from app.integrations.google.routes.client import post_compute_routes
 from app.integrations.google.routes.errors import (
     google_routes_error_from_response,
@@ -12,14 +15,6 @@ from app.integrations.google.routes.errors import (
     google_routes_timeout_error,
 )
 from app.integrations.google.routes.mapper import basic_route_from_google_response
-from app.integrations.google.routes.payloads import (
-    build_compute_routes_payload,
-    build_google_routes_headers,
-)
-from app.schemas.route import (
-    BasicRouteRequest,
-    BasicRouteResponse,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +22,14 @@ logger = logging.getLogger(__name__)
 async def compute_basic_route(
     route_request: BasicRouteRequest,
     client: httpx.AsyncClient,
-) -> BasicRouteResponse:
-    payload = build_compute_routes_payload(route_request)
-    headers = build_google_routes_headers(settings.google_maps_server_key_value)
-
-    return await _send_request(client, payload, headers)
-
-
-async def _send_request(
-    client: httpx.AsyncClient,
-    payload: dict,
-    headers: dict[str, str],
+    api_key: str,
 ) -> BasicRouteResponse:
     try:
-        response = await post_compute_routes(client, payload, headers)
-
+        response = await post_compute_routes(
+            client,
+            route_request,
+            api_key,
+        )
     except httpx.HTTPStatusError as error:
         routes_error = google_routes_error_from_response(error.response)
         logger.error(
@@ -49,7 +37,7 @@ async def _send_request(
             routes_error.context["upstream_status"],
             routes_error.code,
             routes_error.context["google_status"],
-            routes_error.context["google_message"],
+            routes_error.context.get("google_message"),
         )
         raise routes_error from error
     except httpx.TimeoutException as error:

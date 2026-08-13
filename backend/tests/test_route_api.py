@@ -1,12 +1,12 @@
 from fastapi.testclient import TestClient
 from app.api.routes import google_routes
 from app.core.http_client import get_http_client
-from app.domain.errors import ExternalPermissionError
+from app.service.errors import ExternalPermissionError
 from app.main import app
-from app.schemas.route import BasicRouteResponse
+from app.contracts.route import BasicRouteResponse
 
 
-async def fake_compute_basic_route(request, client):
+async def fake_compute_basic_route(request, client, api_key):
     return BasicRouteResponse(duration_minutes=12, distance_miles=3.4, polyline=None)
 
 
@@ -17,7 +17,7 @@ def test_basic_route_endpoint(monkeypatch):
 
     try:
         response = client.post(
-            "/api/routes/basic",
+            "/api/routes/directions",
             json={
                 "origin": {"lat": 47.6062, "lng": -122.3321},
                 "destination": "Pike Place Market",
@@ -34,7 +34,7 @@ def test_basic_route_endpoint(monkeypatch):
     }
 
 
-async def fake_compute_basic_route_forbidden(request, client):
+async def fake_compute_basic_route_forbidden(request, client, api_key):
     raise ExternalPermissionError(
         code="GOOGLE_ROUTES_FORBIDDEN",
         message="Google Routes permission denied. Check API enablement, billing, or key restrictions.",
@@ -57,7 +57,7 @@ def test_basic_route_endpoint_returns_structured_google_error(monkeypatch):
 
     try:
         response = client.post(
-            "/api/routes/basic",
+            "/api/routes/directions",
             json={
                 "origin": {"lat": 47.6062, "lng": -122.3321},
                 "destination": "Pike Place Market",
@@ -88,7 +88,7 @@ def test_request_id_header_is_returned():
 def test_basic_route_endpoint_returns_structured_validation_error():
     with TestClient(app) as client:
         response = client.post(
-            "/api/routes/basic",
+            "/api/routes/directions",
             json={
                 "origin": {"lat": "not-a-number", "lng": -122.3321},
                 "destination": "",
@@ -115,7 +115,7 @@ def test_cors_allows_vite_frontend_origin():
     client = TestClient(app)
 
     response = client.options(
-        "/api/routes/basic",
+        "/api/routes/directions",
         headers={
             "Origin": "http://localhost:5173",
             "Access-Control-Request-Method": "POST",

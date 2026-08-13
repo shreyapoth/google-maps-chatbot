@@ -1,17 +1,17 @@
 import { getCurrentLocation } from "./geolocation";
 import { API_ROUTES } from "./apiRoutes";
 
-export async function requestBasicRoute(destination) {
+export async function requestDirections(destination) {
   const origin = await getCurrentLocation();
-  console.info("[routes] Requesting basic route", {
-    endpoint: API_ROUTES.basicRoute,
+  console.info("[routes] Requesting directions", {
+    endpoint: API_ROUTES.directions,
     origin,
     destination,
   });
 
   let response;
   try {
-    response = await fetch(API_ROUTES.basicRoute, {
+    response = await fetch(API_ROUTES.directions, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ origin, destination }),

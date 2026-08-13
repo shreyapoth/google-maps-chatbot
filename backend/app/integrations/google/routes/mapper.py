@@ -2,9 +2,9 @@ import logging
 
 from pydantic import ValidationError
 
-from app.domain.errors import ExternalResponseError
+from app.service.errors import ExternalResponseError
 from app.integrations.google.routes.models import GoogleRoutesResponse
-from app.schemas.route import BasicRouteResponse
+from app.contracts.route import BasicRouteResponse
 from app.utils.distance import meters_to_miles
 from app.utils.duration import google_duration_to_minutes
 
