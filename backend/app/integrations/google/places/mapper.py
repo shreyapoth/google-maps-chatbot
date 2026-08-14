@@ -1,17 +1,17 @@
 from __future__ import annotations
-
 from pydantic import ValidationError
-
 from app.service.errors import ExternalResponseError
 from app.integrations.google.places.models import (
     GooglePlace,
     GooglePlacesNearbySearchResponse,
+    GooglePlaceLocation
 )
 from app.contracts.coordinates import Coordinates
 from app.contracts.place import (
     PlaceResult,
     PlaceResponse,
 )
+
 
 
 def map_place_response_from_google_response(
@@ -34,17 +34,13 @@ def map_place_response_from_google_response(
 
 def _place_result_from_google_place(place: GooglePlace) -> PlaceResult:
     return PlaceResult(
-        place_id=place.id,
-        name=place.display_name.text,
-        formatted_address=place.formatted_address,
-        location=(
-            Coordinates(
-                latitude=place.location.latitude,
-                longitude=place.location.longitude,
-            )
-            if place.location
-            else None
-        ),
-        primary_type=place.primary_type,
-        types=place.types
+        place_id = place.id,
+        name = place.display_name.text,
+        formatted_address = place.formatted_address,
+        location = _to_coordinates(GooglePlace.location),
+        primary_type = place.primary_type,
+        types = place.types
     )
+
+def _to_coordinates(loc: GooglePlaceLocation | None) -> Coordinates | None:
+    return Coordinates(latitude=loc.latitude, longitude=loc.longitude) if loc else None
