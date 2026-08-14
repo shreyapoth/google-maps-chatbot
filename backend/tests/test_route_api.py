@@ -1,28 +1,35 @@
+from unittest.mock import AsyncMock
+
 from fastapi.testclient import TestClient
-from app.api.routes import google_routes
-from app.core.http_client import get_http_client
-from app.service.errors import ExternalPermissionError
-from app.main import app
+
+from app.api.routes.deps import get_google_routes_service
 from app.contracts.route import BasicRouteResponse
+from app.main import app
+from app.service.errors import ExternalPermissionError
+from app.service.routes.service import GoogleRoutesService
+
+DIRECTIONS_REQUEST = {
+    "origin": {"lat": 47.6062, "lng": -122.3321},
+    "destination": "Pike Place Market",
+}
 
 
-async def fake_compute_basic_route(request, client, api_key):
-    return BasicRouteResponse(duration_minutes=12, distance_miles=3.4, polyline=None)
+def _fake_routes_service() -> AsyncMock:
+    service = AsyncMock(spec=GoogleRoutesService)
+    app.dependency_overrides[get_google_routes_service] = lambda: service
+    return service
 
 
-def test_basic_route_endpoint(monkeypatch):
-    monkeypatch.setattr(google_routes, "compute_basic_route", fake_compute_basic_route)
-    app.dependency_overrides[get_http_client] = lambda: object()
-    client = TestClient(app)
+def test_basic_route_endpoint():
+    service = _fake_routes_service()
+    service.compute_basic_route.return_value = BasicRouteResponse(
+        duration_minutes=12,
+        distance_miles=3.4,
+        polyline=None,
+    )
 
     try:
-        response = client.post(
-            "/api/routes/directions",
-            json={
-                "origin": {"lat": 47.6062, "lng": -122.3321},
-                "destination": "Pike Place Market",
-            },
-        )
+        response = TestClient(app).post("/routes/directions", json=DIRECTIONS_REQUEST)
     finally:
         app.dependency_overrides.clear()
 
@@ -33,9 +40,16 @@ def test_basic_route_endpoint(monkeypatch):
         "polyline": None,
     }
 
+    service.compute_basic_route.assert_awaited_once()
+    route_request = service.compute_basic_route.await_args.args[0]
+    assert route_request.origin.latitude == 47.6062
+    assert route_request.origin.longitude == -122.3321
+    assert route_request.destination == "Pike Place Market"
 
-async def fake_compute_basic_route_forbidden(request, client, api_key):
-    raise ExternalPermissionError(
+
+def test_basic_route_endpoint_returns_structured_google_error():
+    service = _fake_routes_service()
+    service.compute_basic_route.side_effect = ExternalPermissionError(
         code="GOOGLE_ROUTES_FORBIDDEN",
         message="Google Routes permission denied. Check API enablement, billing, or key restrictions.",
         context={
@@ -45,24 +59,8 @@ async def fake_compute_basic_route_forbidden(request, client, api_key):
         },
     )
 
-
-def test_basic_route_endpoint_returns_structured_google_error(monkeypatch):
-    monkeypatch.setattr(
-        google_routes,
-        "compute_basic_route",
-        fake_compute_basic_route_forbidden,
-    )
-    app.dependency_overrides[get_http_client] = lambda: object()
-    client = TestClient(app)
-
     try:
-        response = client.post(
-            "/api/routes/directions",
-            json={
-                "origin": {"lat": 47.6062, "lng": -122.3321},
-                "destination": "Pike Place Market",
-            },
-        )
+        response = TestClient(app).post("/routes/directions", json=DIRECTIONS_REQUEST)
     finally:
         app.dependency_overrides.clear()
 
@@ -88,7 +86,7 @@ def test_request_id_header_is_returned():
 def test_basic_route_endpoint_returns_structured_validation_error():
     with TestClient(app) as client:
         response = client.post(
-            "/api/routes/directions",
+            "/routes/directions",
             json={
                 "origin": {"lat": "not-a-number", "lng": -122.3321},
                 "destination": "",
@@ -115,7 +113,7 @@ def test_cors_allows_vite_frontend_origin():
     client = TestClient(app)
 
     response = client.options(
-        "/api/routes/directions",
+        "/routes/directions",
         headers={
             "Origin": "http://localhost:5173",
             "Access-Control-Request-Method": "POST",
@@ -130,4 +128,3 @@ def test_lifespan_creates_shared_clients():
     with TestClient(app):
         assert hasattr(app.state, "http_client")
         assert hasattr(app.state, "nvidia_client")
-

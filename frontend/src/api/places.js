@@ -2,10 +2,11 @@ import { getCurrentLocation } from "./geolocation";
 import { API_ROUTES } from "./apiRoutes";
 
 export async function requestNearbyPlaces(includedTypes = ["restaurant"]) {
-  const location = await getCurrentLocation();
+  const { coords, source } = await getCurrentLocation();
   console.info("[places] Requesting nearby places", {
     endpoint: API_ROUTES.nearbyPlaces,
-    location,
+    coords,
+    locationSource: source,
     includedTypes,
   });
 
@@ -17,8 +18,8 @@ export async function requestNearbyPlaces(includedTypes = ["restaurant"]) {
       body: JSON.stringify({
         included_types: includedTypes,
         location: {
-          latitude: location.lat,
-          longitude: location.lng,
+          latitude: coords.lat,
+          longitude: coords.lng,
         },
         radius: 5000,
         max_results: 5,
@@ -43,5 +44,6 @@ export async function requestNearbyPlaces(includedTypes = ["restaurant"]) {
     throw new Error(`Nearby search failed: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return { ...data, locationSource: source };
 }

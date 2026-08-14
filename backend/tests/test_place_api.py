@@ -8,40 +8,35 @@ from app.contracts.place import (
     PlaceNearbySearchRequest,
     PlaceResponse,
     PlaceResult,
+    PlaceTextSearchRequest,
 )
 from app.main import app
+from app.service.places.service import GooglePlaceService
 
 
-class _FakePlaceService:
-    def __init__(self) -> None:
-        self.search_nearby_places = AsyncMock(side_effect=self._search_nearby)
-
-    async def _search_nearby(self, request: PlaceNearbySearchRequest) -> PlaceResponse:
-        assert request.included_types == ["restaurant"]
-        assert request.location.latitude == 37.33
-        assert request.location.longitude == -121.89
-        assert request.radius == 5000.0
-        assert request.max_results == 10
-        return PlaceResponse(
-            places=[
-                PlaceResult(
-                    place_id="ChIJ123",
-                    name="Example Indian Restaurant",
-                    formatted_address="San Jose, CA",
-                    location=Coordinates(latitude=37.33, longitude=-121.89),
-                    primary_type="indian_restaurant",
-                    types=["indian_restaurant", "restaurant"],
-                )
-            ]
-        )
+def _fake_place_service() -> AsyncMock:
+    service = AsyncMock(spec=GooglePlaceService)
+    app.dependency_overrides[get_google_place_service] = lambda: service
+    return service
 
 
 def test_places_nearby_endpoint_returns_normalized_places():
-    fake_service = _FakePlaceService()
-    app.dependency_overrides[get_google_place_service] = lambda: fake_service
-    client = TestClient(app)
+    service = _fake_place_service()
+    service.search_nearby_places.return_value = PlaceResponse(
+        places=[
+            PlaceResult(
+                place_id="ChIJ123",
+                name="Example Indian Restaurant",
+                formatted_address="San Jose, CA",
+                location=Coordinates(latitude=37.33, longitude=-121.89),
+                primary_type="indian_restaurant",
+                types=["indian_restaurant", "restaurant"],
+            )
+        ]
+    )
+
     try:
-        response = client.post(
+        response = TestClient(app).post(
             "/places/nearby",
             json={
                 "included_types": ["restaurant"],
@@ -69,7 +64,52 @@ def test_places_nearby_endpoint_returns_normalized_places():
             }
         ]
     }
-    fake_service.search_nearby_places.assert_awaited_once()
+
+    service.search_nearby_places.assert_awaited_once()
+    nearby_request: PlaceNearbySearchRequest = service.search_nearby_places.await_args.args[0]
+    assert nearby_request.included_types == ["restaurant"]
+    assert nearby_request.location.latitude == 37.33
+    assert nearby_request.location.longitude == -121.89
+    assert nearby_request.radius == 5000.0
+    assert nearby_request.max_results == 10
+
+
+def test_places_text_search_endpoint_returns_normalized_places():
+    service = _fake_place_service()
+    service.search_text_places.return_value = PlaceResponse(
+        places=[
+            PlaceResult(
+                place_id="ChIJ456",
+                name="Example Coffee",
+                formatted_address="Austin, TX",
+                location=Coordinates(latitude=30.27, longitude=-97.74),
+                primary_type="coffee_shop",
+                types=["coffee_shop", "cafe"],
+            )
+        ]
+    )
+
+    try:
+        response = TestClient(app).post(
+            "/places/text-search",
+            json={"text_query": "  coffee shops in Austin  "},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["places"][0]["name"] == "Example Coffee"
+
+    service.search_text_places.assert_awaited_once()
+    text_request: PlaceTextSearchRequest = service.search_text_places.await_args.args[0]
+    assert text_request.text_query == "coffee shops in Austin"
+
+
+def test_places_text_search_endpoint_rejects_blank_query():
+    with TestClient(app) as client:
+        response = client.post("/places/text-search", json={"text_query": "   "})
+
+    assert response.status_code == 422
 
 
 def test_places_nearby_endpoint_rejects_empty_included_types():

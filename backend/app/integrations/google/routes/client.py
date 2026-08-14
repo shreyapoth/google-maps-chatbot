@@ -11,26 +11,26 @@ from app.integrations.google.routes.request import (
 
 logger = logging.getLogger(__name__)
 
+class GoogleRoutesClient:
+    def __init__(self, api_key: str, client: httpx.AsyncClient) -> None:
+        self._api_key = api_key
+        self._client = client 
+        
+    async def post_compute_routes(self, request: BasicRouteRequest) -> httpx.Response:
+        body = build_compute_routes_body(request)
+        headers = build_compute_routes_headers(self._api_key)
 
-async def post_compute_routes(
-    client: httpx.AsyncClient,
-    route_request: BasicRouteRequest,
-    api_key: str,
-) -> httpx.Response:
-    body = build_compute_routes_body(route_request)
-    headers = build_compute_routes_headers(api_key)
-
-    logger.info(
-        "google_routes.request url=%s destination=%r has_api_key=%s",
-        EXTERNAL_URLS["google_routes_compute"],
-        body["destination"]["address"],
-        bool(api_key),
-    )
-    response = await client.post(
-        EXTERNAL_URLS["google_routes_compute"],
-        json=body,
-        headers=headers,
-    )
-    logger.info("google_routes.response status=%s", response.status_code)
-    response.raise_for_status()
-    return response
+        logger.info(
+            "google_routes.request url=%s destination=%r has_api_key=%s",
+            EXTERNAL_URLS["google_routes_compute"],
+            body["destination"]["address"],
+            bool(self._api_key),
+        )
+        response = await self._client.post(
+            EXTERNAL_URLS["google_routes_compute"],
+            json=body,
+            headers=headers,
+        )
+        logger.info("google_routes.response status=%s", response.status_code)
+        response.raise_for_status()
+        return response

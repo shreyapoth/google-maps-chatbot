@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FALLBACK_LOCATION_LABEL, LOCATION_SOURCE } from "../api/geolocation";
 import { requestNearbyPlaces } from "../api/places";
 import { requestDirections } from "../api/routes";
 import PlaceCard from "./PlaceCard";
@@ -7,18 +8,24 @@ export default function NearbySearchPanel({ onResult }) {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(false);
   const [routingPlaceId, setRoutingPlaceId] = useState(null);
+  const [usedFallbackLocation, setUsedFallbackLocation] = useState(false);
   const [error, setError] = useState("");
 
   async function handleNearbySearch() {
     setLoading(true);
     setError("");
     setPlaces([]);
+    setUsedFallbackLocation(false);
 
     try {
       const data = await requestNearbyPlaces(["restaurant"]);
+      const isFallbackLocation = data.locationSource === LOCATION_SOURCE.FALLBACK;
+      const searchArea = isFallbackLocation ? `near ${FALLBACK_LOCATION_LABEL}` : "nearby";
+
       setPlaces(data.places ?? []);
+      setUsedFallbackLocation(isFallbackLocation);
       onResult({
-        message: `Found ${data.places?.length ?? 0} nearby restaurants. Pick one for directions.`,
+        message: `Found ${data.places?.length ?? 0} restaurants ${searchArea}. Pick one for directions.`,
         routes: [],
       });
     } catch (nearbyError) {
@@ -54,6 +61,12 @@ export default function NearbySearchPanel({ onResult }) {
       <button type="button" onClick={handleNearbySearch} disabled={loading || routingPlaceId}>
         {loading ? "Searching..." : "Find nearby restaurants"}
       </button>
+
+      {usedFallbackLocation && (
+        <p className="location-notice">
+          Couldn&apos;t get your location, so these results are near {FALLBACK_LOCATION_LABEL}.
+        </p>
+      )}
 
       {error && <p className="error">{error}</p>}
 

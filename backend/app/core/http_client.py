@@ -47,6 +47,5 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def get_http_client(request: Request) -> httpx.AsyncClient:
     return request.app.state.http_client
 
-
 def get_nvidia_client(request: Request) -> AsyncOpenAI:
     return request.app.state.nvidia_client

@@ -15,7 +15,6 @@ def get_google_place_client(
         client=http_client,
     )
 
-
 def get_google_place_service(
     place_client: GooglePlaceClient = Depends(get_google_place_client),
 ) -> GooglePlaceService:

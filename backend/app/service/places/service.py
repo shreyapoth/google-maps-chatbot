@@ -1,9 +1,6 @@
 from __future__ import annotations
-
 import logging
-
 import httpx
-
 from app.contracts.place import (
     PlaceNearbySearchRequest,
     PlaceResponse,
@@ -19,7 +16,6 @@ from app.integrations.google.places.mapper import map_place_response_from_google
 from app.service.errors import ExternalResponseError
 
 logger = logging.getLogger(__name__)
-
 
 class GooglePlaceService:
     def __init__(self, client: GooglePlaceClient) -> None:

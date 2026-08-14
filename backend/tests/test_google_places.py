@@ -4,12 +4,17 @@ import httpx
 import pytest
 
 from app.contracts.coordinates import Coordinates
-from app.contracts.place import PlaceNearbySearchRequest
+from app.contracts.place import PlaceNearbySearchRequest, PlaceTextSearchRequest
 from app.core.external_urls import EXTERNAL_URLS
 from app.integrations.google.places.client import GooglePlaceClient
 from app.integrations.google.places.mapper import map_place_response_from_google_response
-from app.integrations.google.places.request import GOOGLE_PLACES_NEARBY_SEARCH_FIELD_MASK
+from app.integrations.google.places.request import (
+    GOOGLE_PLACES_NEARBY_SEARCH_FIELD_MASK,
+    GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK,
+)
 from app.service.errors import (
+    ExternalAuthenticationError,
+    ExternalPermissionError,
     ExternalRateLimitError,
     ExternalResponseError,
     ExternalServiceError,
@@ -25,6 +30,10 @@ def _nearby_request() -> PlaceNearbySearchRequest:
         radius=5000.0,
         max_results=10,
     )
+
+
+def _text_request() -> PlaceTextSearchRequest:
+    return PlaceTextSearchRequest(text_query="coffee shops in Austin")
 
 
 def _place_service(http_client: httpx.AsyncClient) -> GooglePlaceService:
@@ -182,6 +191,128 @@ async def test_search_nearby_places_rejects_invalid_json_body():
 
     assert error.value.code == "GOOGLE_PLACES_INVALID_RESPONSE"
     assert error.value.context["upstream_status"] == 200
+
+
+@pytest.mark.asyncio
+async def test_search_text_places_sends_expected_request():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["headers"] = request.headers
+        captured["json"] = json.loads(request.content.decode())
+        return httpx.Response(
+            200,
+            json={
+                "places": [
+                    {
+                        "id": "ChIJ456",
+                        "displayName": {"text": "Example Coffee"},
+                        "formattedAddress": "Austin, TX",
+                        "location": {"latitude": 30.27, "longitude": -97.74},
+                        "primaryType": "coffee_shop",
+                        "types": ["coffee_shop", "cafe"],
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        response = await _place_service(http_client).search_text_places(_text_request())
+
+    assert captured["url"] == EXTERNAL_URLS["google_places_text_search"]
+    assert captured["headers"]["X-Goog-Api-Key"] == "test-api-key"
+    assert captured["headers"]["Content-Type"] == "application/json"
+    assert captured["headers"]["X-Goog-FieldMask"] == GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK
+    assert captured["json"] == {"textQuery": "coffee shops in Austin"}
+    assert response.model_dump() == {
+        "places": [
+            {
+                "place_id": "ChIJ456",
+                "name": "Example Coffee",
+                "formatted_address": "Austin, TX",
+                "location": {"latitude": 30.27, "longitude": -97.74},
+                "primary_type": "coffee_shop",
+                "types": ["coffee_shop", "cafe"],
+            }
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_search_text_places_does_not_request_billed_atmosphere_fields():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["field_mask"] = request.headers["X-Goog-FieldMask"]
+        return httpx.Response(200, json={"places": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        await _place_service(http_client).search_text_places(_text_request())
+
+    for atmosphere_field in ("places.rating", "places.userRatingCount", "places.priceLevel"):
+        assert atmosphere_field not in captured["field_mask"]
+
+
+@pytest.mark.asyncio
+async def test_search_text_places_raises_bad_request_error_for_400():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"status": "INVALID_ARGUMENT"}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        with pytest.raises(ExternalResponseError) as error:
+            await _place_service(http_client).search_text_places(_text_request())
+
+    assert error.value.code == "GOOGLE_PLACES_BAD_REQUEST"
+    assert error.value.context["upstream_status"] == 400
+
+
+@pytest.mark.asyncio
+async def test_search_text_places_raises_timeout_error_for_network_timeout():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("timeout", request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        with pytest.raises(ExternalTimeoutError) as error:
+            await _place_service(http_client).search_text_places(_text_request())
+
+    assert error.value.code == "GOOGLE_PLACES_TIMEOUT"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("upstream_status", "expected_type", "expected_code"),
+    [
+        (401, ExternalAuthenticationError, "GOOGLE_PLACES_UNAUTHORIZED"),
+        (403, ExternalPermissionError, "GOOGLE_PLACES_FORBIDDEN"),
+        (404, ExternalResponseError, "GOOGLE_PLACES_REQUEST_REJECTED"),
+        (503, ExternalServiceError, "GOOGLE_PLACES_UPSTREAM_ERROR"),
+    ],
+)
+async def test_search_nearby_places_maps_upstream_status_to_error(
+    upstream_status, expected_type, expected_code
+):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(upstream_status, json={"error": {"status": "FAILED"}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        with pytest.raises(expected_type) as error:
+            await _place_service(http_client).search_nearby_places(_nearby_request())
+
+    assert error.value.code == expected_code
+    assert error.value.context["upstream_status"] == upstream_status
+    assert error.value.context["google_status"] == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_search_nearby_places_handles_response_without_places_key():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        response = await _place_service(http_client).search_nearby_places(_nearby_request())
+
+    assert response.places == []
 
 
 def test_places_mapper_rejects_malformed_upstream_response():

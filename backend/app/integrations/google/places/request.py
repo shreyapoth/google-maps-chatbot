@@ -9,11 +9,7 @@ GOOGLE_PLACES_NEARBY_SEARCH_FIELD_MASK = (
     "places.formattedAddress,"
     "places.location,"
     "places.primaryType,"
-    "places.types,"
-    "places.rating,"
-    "places.userRatingCount,"
-    "places.priceLevel,"
-    "places.googleMapsUri"
+    "places.types"
 )
 
 GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK = (
