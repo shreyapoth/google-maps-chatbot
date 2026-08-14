@@ -9,6 +9,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.exception_handlers import register_exception_handlers
+from app.api.places.google_places_router import router as places_router
 from app.api.routes.google_routes import router as google_routes_router
 from app.core.config import settings
 from app.core.http_client import lifespan
@@ -25,6 +26,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(places_router)
 app.include_router(google_routes_router)
 
 

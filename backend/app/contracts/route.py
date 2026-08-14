@@ -5,21 +5,11 @@ from pydantic import (
     field_validator,
 )
 
-
-class Coordinates(BaseModel):
-    lat: float
-    lng: float
-
+from app.contracts.coordinates import Coordinates
 
 class BasicRouteRequest(BaseModel):
     origin: Coordinates
     destination: str
-
-    @field_validator("origin")
-    def validate_origin(cls, v):
-        if not v:
-            raise ValueError("Origin is required")
-        return v
 
     @field_validator("destination")
     def validate_destination(cls, v):

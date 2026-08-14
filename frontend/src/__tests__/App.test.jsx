@@ -43,7 +43,7 @@ describe("App", () => {
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:8000/api/routes/basic",
+      "http://localhost:8000/routes/directions",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({

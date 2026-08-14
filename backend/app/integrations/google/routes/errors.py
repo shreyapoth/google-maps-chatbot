@@ -1,6 +1,6 @@
 import httpx
 
-from app.domain.errors import (
+from app.service.errors import (
     ExternalAuthenticationError,
     ExternalPermissionError,
     ExternalRateLimitError,

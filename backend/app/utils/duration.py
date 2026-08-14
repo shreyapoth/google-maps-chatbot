@@ -1,3 +1,3 @@
 def google_duration_to_minutes(duration: str) -> int:
-    seconds = int(duration.rstrip("s"))
+    seconds = float(duration.removesuffix("s"))
     return round(seconds / 60)

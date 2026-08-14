@@ -1,6 +1,13 @@
 # Google Maps Chatbot
 
-Minimal Flask + React scaffold for a maps-aware chatbot.
+FastAPI backend and React (Vite) frontend that finds nearby places and driving routes through the
+Google Maps Platform.
+
+## Prerequisites
+
+- Python 3.9 or newer
+- Node 20.19+ or 22.12+ (required by Vite 8)
+- A Google Maps Platform API key with **Places API (New)** and **Routes API** enabled
 
 ## Backend
 
@@ -8,9 +15,12 @@ Minimal Flask + React scaffold for a maps-aware chatbot.
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
+pip install -r requirements-dev.txt   # requirements.txt alone for runtime only
+cp .env.example .env                  # then fill in the keys
+uvicorn app.main:app --reload --port 8000
 ```
+
+The API is served at `http://localhost:8000`; interactive docs are at `/docs`.
 
 ## Frontend
 
@@ -20,10 +30,57 @@ npm install
 npm run dev
 ```
 
-## Env
+The dev server runs at `http://localhost:5173` and expects the backend on port 8000.
+
+## Environment variables
+
+Backend values are read from `backend/.env` (see `backend/.env.example`).
+
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `GOOGLE_MAPS_SERVER_KEY` | yes | — | Server-side key used for Places and Routes calls |
+| `NVIDIA_API_KEY` | yes | — | Startup builds an LLM client, but no endpoint uses it yet |
+| `CORS_ORIGINS` | no | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list |
+| `VITE_API_URL` | no | `http://localhost:8000` | Frontend only; set in the shell or `frontend/.env` |
+
+`NVIDIA_API_KEY` has no runtime effect today, but `Settings` requires it, so the app will not start
+without a value.
+
+## Tests
 
 ```bash
-GOOGLE_MAPS_API_KEY=your-key
-FRONTEND_ORIGIN=http://localhost:5173
-VITE_API_URL=http://localhost:5000
+cd backend && source .venv/bin/activate && pytest
+cd frontend && npm test -- --run
 ```
+
+## Endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Liveness check |
+| POST | `/places/nearby` | Places within a radius of a point, filtered by type |
+| POST | `/places/text-search` | Free-text place search |
+| POST | `/routes/directions` | Driving route from a coordinate to an address |
+
+```bash
+curl -X POST http://localhost:8000/places/nearby \
+  -H 'Content-Type: application/json' \
+  -d '{"included_types":["restaurant"],"location":{"latitude":37.33,"longitude":-121.89},"radius":5000,"max_results":5}'
+```
+
+## Layout
+
+Requests flow router → service → integration client → Google.
+
+```
+backend/app
+├── api/            FastAPI routers and Depends providers
+├── contracts/      Request and response models for this API
+├── core/           Settings, shared HTTP and LLM clients, external URLs
+├── integrations/   Google wire models, request builders, clients, mappers
+├── service/        Orchestration and error translation
+└── utils/          Unit conversions
+```
+
+`contracts/` describes shapes this API exposes; `integrations/**/models.py` describes shapes Google
+returns. Mappers convert between the two so upstream field names never leak into the public API.

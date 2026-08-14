@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { requestBasicRoute } from "../api/routes";
+import { requestDirections } from "../api/routes";
 import { getDestinationFromInput } from "../utils/routeInput";
 
 export default function ChatPanel({ onResult }) {
@@ -17,7 +17,7 @@ export default function ChatPanel({ onResult }) {
     setError("");
 
     try {
-      const route = await requestBasicRoute(routeDestination);
+      const route = await requestDirections(routeDestination);
       onResult({
         message: `Route to ${routeDestination}`,
         routes: [route],
