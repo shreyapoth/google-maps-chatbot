@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
+    Field,
     field_validator,
-    Field
 )
 
 from app.contracts.coordinates import Coordinates
@@ -19,6 +20,8 @@ class BasicRouteRequest(BaseModel):
         return v
 
 class Destination(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     place_id: str = Field(alias="placeId")
 
 class BasicRouteResponse(BaseModel):

@@ -15,7 +15,7 @@ def build_compute_routes_body(route_request: BasicRouteRequest) -> dict:
                 }
             }
         },
-        "destination": {"address": route_request.destination},
+        "destination": {"placeId": route_request.destination.place_id},
         "travelMode": "DRIVE",
         "routingPreference": "TRAFFIC_AWARE",
         "computeAlternativeRoutes": False,

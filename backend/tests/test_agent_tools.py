@@ -11,6 +11,7 @@ from app.contracts.place import (
 from app.contracts.route import BasicRouteResponse
 from app.service.places.service import GooglePlaceService
 from app.service.routes.service import GoogleRoutesService
+from app.tools.place_types import normalize_place_types
 from app.tools.tools import (
     google_place_tools,
     google_routes_tools,
@@ -81,17 +82,27 @@ async def test_route_tool_builds_a_request_from_the_users_location():
 
     tools = _tools_by_name(google_routes_tools(routes_service))
     result = await tools["compute_route"].ainvoke(
-        {"destination": "Torchy's Tacos", "latitude": 30.27, "longitude": -97.74}
+        {"place_id": "ChIJ123", "latitude": 30.27, "longitude": -97.74}
     )
 
     route_request = routes_service.compute_basic_route.await_args.args[0]
     assert route_request.origin.latitude == 30.27
-    assert route_request.destination == "Torchy's Tacos"
+    assert route_request.destination.place_id == "ChIJ123"
     assert json.loads(result)["duration_minutes"] == 4
 
 
 @pytest.mark.asyncio
-async def test_nearby_tool_searches_text_for_something_that_is_not_a_category():
+async def test_nearby_tool_accepts_a_python_repr_string_of_types():
+    place_service = AsyncMock(spec=GooglePlaceService)
+    place_service.search_nearby_places.return_value = _place_response()
+
+    tools = _tools_by_name(google_place_tools(place_service))
+    await tools["search_nearby_places"].ainvoke(
+        {"types": "['gas_station']", "latitude": 30.27, "longitude": -97.74}
+    )
+
+    nearby_request = place_service.search_nearby_places.await_args.args[0]
+    assert nearby_request.included_types == ["gas_station"]
     place_service = AsyncMock(spec=GooglePlaceService)
     place_service.search_text_places.return_value = _place_response()
 
@@ -136,6 +147,14 @@ async def test_nearby_tool_searches_text_when_nothing_is_nearby():
     place_service.search_nearby_places.assert_awaited_once()
     assert place_service.search_text_places.await_args.args[0].text_query == "sushi_restaurant"
     assert json.loads(result)["places"][0]["name"] == "Torchy's Tacos"
+
+
+def test_normalize_place_types_accepts_the_shapes_the_model_sends():
+    assert normalize_place_types(["gas_station"]) == ["gas_station"]
+    assert normalize_place_types("['gas_station']") == ["gas_station"]
+    assert normalize_place_types('["cafe", "gas_station"]') == ["cafe", "gas_station"]
+    assert normalize_place_types("gas_station, cafe") == ["gas_station", "cafe"]
+    assert normalize_place_types("gas_station") == ["gas_station"]
 
 
 def test_every_tool_exposes_a_description_for_the_model():

@@ -9,7 +9,6 @@ from fastapi import (
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
-    SystemMessage,
 )
 from langgraph.errors import GraphRecursionError
 from langgraph.graph.state import CompiledStateGraph
@@ -28,7 +27,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 AGENT_TIMEOUT_SECONDS = 30.0
-AGENT_RECURSION_LIMIT = 15
+AGENT_RECURSION_LIMIT = 100
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -84,17 +83,16 @@ async def chat(
 
 
 def _turn_messages(chat_request: ChatRequest) -> list[BaseMessage]:
-    # Only this turn is appended. Prior turns come back from the checkpointer
-    # via thread_id, so replaying the transcript here would duplicate history.
-    location_note = (
-        f"The user's current location is latitude {chat_request.location.latitude}, "
-        f"longitude {chat_request.location.longitude}. "
-        "Use these coordinates for any tool that needs the user's location."
-    )
-
+    # Location is request-scoped, so it rides on this turn's HumanMessage.
+    # A SystemMessage here would pile up in the checkpointer between turns.
     return [
-        SystemMessage(content=location_note),
-        HumanMessage(content=chat_request.message),
+        HumanMessage(
+            content=(
+                f"My current location is lat {chat_request.location.latitude}, "
+                f"lng {chat_request.location.longitude}.\n"
+                f"{chat_request.message}"
+            )
+        )
     ]
 
 

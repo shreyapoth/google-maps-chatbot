@@ -55,11 +55,11 @@ def test_chat_endpoint_gives_the_agent_the_users_coordinates():
         app.dependency_overrides.clear()
 
     state = agent.ainvoke.await_args.args[0]
-    location_message, user_message = state["messages"]
+    [user_message] = state["messages"]
 
-    assert "30.27" in location_message.content
-    assert "-97.74" in location_message.content
-    assert user_message.content == "find me tacos nearby"
+    assert user_message.content == (
+        "My current location is lat 30.27, lng -97.74.\nfind me tacos nearby"
+    )
 
 
 def test_chat_endpoint_reports_an_empty_agent_reply():

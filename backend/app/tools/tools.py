@@ -1,4 +1,6 @@
 import logging
+from typing import Union
+
 from langchain_core.tools import (
     BaseTool,
     tool
@@ -11,7 +13,10 @@ from app.contracts.place import (
 from app.contracts.route import BasicRouteRequest, Destination
 from app.service.places.service import GooglePlaceService
 from app.service.routes.service import GoogleRoutesService
-from app.tools.place_types import PLACE_TYPES
+from app.tools.place_types import (
+    PLACE_TYPES,
+    normalize_place_types,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +31,7 @@ def google_place_tools(place_service: GooglePlaceService) -> list[BaseTool]:
 
     @tool
     async def search_nearby_places(
-        types: list[str],
+        types: Union[list[str], str],
         latitude: float,
         longitude: float,
     ) -> str:
@@ -37,11 +42,12 @@ def google_place_tools(place_service: GooglePlaceService) -> list[BaseTool]:
         anything else, such as a dish or a brand, is searched as text instead."""
 
         location = Coordinates(latitude=latitude, longitude=longitude)
-        categories = [place_type for place_type in types if place_type in PLACE_TYPES]
+        requested_types = normalize_place_types(types)
+        categories = [place_type for place_type in requested_types if place_type in PLACE_TYPES]
 
         if not categories:
-            logger.info("tools.nearby_search.unknown_category types=%s", types)
-            return await search_text_near(" ".join(types), location)
+            logger.info("tools.nearby_search.unknown_category types=%s", requested_types)
+            return await search_text_near(" ".join(requested_types), location)
 
         response = await place_service.search_nearby_places(
             PlaceNearbySearchRequest(
@@ -52,7 +58,7 @@ def google_place_tools(place_service: GooglePlaceService) -> list[BaseTool]:
 
         if not response.places:
             logger.info("tools.nearby_search.no_results categories=%s", categories)
-            return await search_text_near(" ".join(types), location)
+            return await search_text_near(" ".join(requested_types), location)
 
         return response.model_dump_json(exclude_none=True)
 
@@ -81,7 +87,7 @@ def google_routes_tools(routes_service: GoogleRoutesService) -> list[BaseTool]:
         response = await routes_service.compute_basic_route(
             BasicRouteRequest(
                 origin=Coordinates(latitude=latitude, longitude=longitude),
-                destination=Destination(placeId=place_id),
+                destination=Destination(place_id=place_id),
             )
         )
 

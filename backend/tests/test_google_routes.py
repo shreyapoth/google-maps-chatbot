@@ -16,7 +16,9 @@ from app.integrations.google.routes.mapper import basic_route_from_google_respon
 from app.contracts.route import (
     BasicRouteRequest,
     Coordinates,
+    Destination,
 )
+from app.integrations.google.routes.request import build_compute_routes_body
 
 
 def _routes_service(http_client: httpx.AsyncClient) -> GoogleRoutesService:
@@ -28,8 +30,22 @@ def _routes_service(http_client: httpx.AsyncClient) -> GoogleRoutesService:
 def _route_request() -> BasicRouteRequest:
     return BasicRouteRequest(
         origin=Coordinates(lat=47.6062, lng=-122.3321),
-        destination="Space Needle, Seattle",
+        destination=Destination(placeId="ChIJ123"),
     )
+
+
+def test_destination_accepts_place_id_and_placeId():
+    assert Destination(place_id="ChIJ123").place_id == "ChIJ123"
+    assert Destination(placeId="ChIJ123").place_id == "ChIJ123"
+    assert Destination.model_validate({"place_id": "ChIJ123"}).place_id == "ChIJ123"
+    assert Destination.model_validate({"placeId": "ChIJ123"}).place_id == "ChIJ123"
+
+
+def test_compute_routes_body_sends_the_place_id():
+    body = build_compute_routes_body(_route_request())
+
+    assert body["destination"] == {"placeId": "ChIJ123"}
+    assert "address" not in body["destination"]
 
 
 @pytest.mark.asyncio
@@ -56,7 +72,7 @@ async def test_compute_basic_route_converts_google_response():
     transport = httpx.MockTransport(handler)
     request = BasicRouteRequest(
         origin=Coordinates(lat=47.6062, lng=-122.3321),
-        destination="Space Needle, Seattle",
+        destination=Destination(placeId="ChIJ123"),
     )
 
     async with httpx.AsyncClient(transport=transport) as client:
@@ -88,7 +104,7 @@ async def test_compute_basic_route_raises_helpful_error_for_forbidden_response()
     transport = httpx.MockTransport(handler)
     request = BasicRouteRequest(
         origin=Coordinates(lat=47.6062, lng=-122.3321),
-        destination="Space Needle, Seattle",
+        destination=Destination(placeId="ChIJ123"),
     )
 
     async with httpx.AsyncClient(transport=transport) as client:

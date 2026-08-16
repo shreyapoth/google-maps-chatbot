@@ -1,3 +1,6 @@
+import ast
+import json
+
 # Google Places (New) only accepts included types from its own table and rejects
 # anything else with INVALID_ARGUMENT, so the nearby tool checks a requested type
 # against this set and falls back to a text search instead of failing the call.
@@ -25,3 +28,45 @@ PLACE_TYPES = frozenset(
         "library", "post_office", "police",
     }
 )
+
+
+def normalize_place_types(value: object) -> list[str]:
+    # Llama 3.1 8B often sends "['gas_station']" as a string instead of a list.
+    if isinstance(value, str):
+        items = _split_place_type_string(value)
+    elif isinstance(value, (list, tuple)):
+        items = value
+    elif value is None:
+        items = []
+    else:
+        items = [value]
+
+    return [item for item in (_clean_place_type(entry) for entry in items) if item]
+
+
+def _split_place_type_string(value: str) -> list:
+    stripped = value.strip()
+    if not stripped:
+        return []
+
+    if stripped[0] in "[(":
+        try:
+            parsed = ast.literal_eval(stripped)
+            if isinstance(parsed, (list, tuple)):
+                return list(parsed)
+        except (ValueError, SyntaxError):
+            pass
+
+        try:
+            parsed = json.loads(stripped.replace("'", '"'))
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    return [part.strip() for part in stripped.split(",") if part.strip()]
+
+
+def _clean_place_type(value: object) -> str:
+    return str(value).strip().strip("'\"")
+

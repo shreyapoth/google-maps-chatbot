@@ -23,7 +23,7 @@ class GoogleRoutesClient:
         logger.info(
             "google_routes.request url=%s destination=%r has_api_key=%s",
             EXTERNAL_URLS["google_routes_compute"],
-            body["destination"]["address"],
+            body["destination"]["placeId"],
             bool(self._api_key),
         )
         response = await self._client.post(
