@@ -11,6 +11,7 @@ from app.integrations.google.places.mapper import map_place_response_from_google
 from app.integrations.google.places.request import (
     GOOGLE_PLACES_NEARBY_SEARCH_FIELD_MASK,
     GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK,
+    TEXT_SEARCH_BIAS_RADIUS_METERS,
 )
 from app.service.errors import (
     ExternalAuthenticationError,
@@ -194,6 +195,30 @@ async def test_search_nearby_places_rejects_invalid_json_body():
 
 
 @pytest.mark.asyncio
+async def test_search_text_places_biases_results_toward_the_user():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["json"] = json.loads(request.content.decode())
+        return httpx.Response(200, json={"places": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        await _place_service(http_client).search_text_places(
+            PlaceTextSearchRequest(
+                text_query="terry blacks barbecue",
+                location_bias=Coordinates(latitude=30.27, longitude=-97.74),
+            )
+        )
+
+    assert captured["json"]["locationBias"] == {
+        "circle": {
+            "center": {"latitude": 30.27, "longitude": -97.74},
+            "radius": TEXT_SEARCH_BIAS_RADIUS_METERS,
+        }
+    }
+
+
+@pytest.mark.asyncio
 async def test_search_text_places_sends_expected_request():
     captured = {}
 
@@ -225,6 +250,7 @@ async def test_search_text_places_sends_expected_request():
     assert captured["headers"]["Content-Type"] == "application/json"
     assert captured["headers"]["X-Goog-FieldMask"] == GOOGLE_PLACES_TEXT_SEARCH_FIELD_MASK
     assert captured["json"] == {"textQuery": "coffee shops in Austin"}
+    assert "locationBias" not in captured["json"]
     assert response.model_dump() == {
         "places": [
             {

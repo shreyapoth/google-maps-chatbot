@@ -2,8 +2,10 @@ from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
-from app.api.routes.deps import get_google_routes_service
+from app.bootstrap import get_google_routes_service
 from app.contracts.route import BasicRouteResponse
+from app.integrations.google.places.client import GooglePlaceClient
+from app.integrations.google.routes.client import GoogleRoutesClient
 from app.main import app
 from app.service.errors import ExternalPermissionError
 from app.service.routes.service import GoogleRoutesService
@@ -128,3 +130,5 @@ def test_lifespan_creates_shared_clients():
     with TestClient(app):
         assert hasattr(app.state, "http_client")
         assert hasattr(app.state, "nvidia_client")
+        assert isinstance(app.state.google_places_client, GooglePlaceClient)
+        assert isinstance(app.state.google_routes_client, GoogleRoutesClient)

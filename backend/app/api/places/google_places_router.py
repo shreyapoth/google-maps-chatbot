@@ -5,7 +5,7 @@ from fastapi import (
     Depends,
 )
 
-from app.api.places.deps import get_google_place_service
+from app.bootstrap import get_google_place_service
 from app.contracts.place import (
     PlaceNearbySearchRequest,
     PlaceResponse,

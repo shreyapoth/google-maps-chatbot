@@ -37,7 +37,7 @@ def _place_result_from_google_place(place: GooglePlace) -> PlaceResult:
         place_id = place.id,
         name = place.display_name.text,
         formatted_address = place.formatted_address,
-        location = _to_coordinates(GooglePlace.location),
+        location = _to_coordinates(place.location),
         primary_type = place.primary_type,
         types = place.types
     )

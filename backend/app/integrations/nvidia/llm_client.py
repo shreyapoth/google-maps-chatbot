@@ -1,6 +1,6 @@
 from openai import AsyncOpenAI
 
-NVIDIA_MODEL = "meta/llama-3.3-70b-instruct"
+NVIDIA_MODEL = "meta/llama-3.1-8b-instruct"
 
 
 async def create_chat_completion(client: AsyncOpenAI, prompt: str):

@@ -5,6 +5,8 @@ import App from "../App";
 describe("App", () => {
   afterEach(() => {
     cleanup();
+    sessionStorage.clear();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -12,10 +14,10 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByText("Google Maps Chatbot")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Enter a destination...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Ask about places or directions...")).toBeInTheDocument();
   });
 
-  it("uses device location when requesting a route", async () => {
+  it("sends a chat message with the device location", async () => {
     const getCurrentPosition = vi.fn((success) =>
       success({ coords: { latitude: 47.6062, longitude: -122.3321 } })
     );
@@ -25,32 +27,26 @@ describe("App", () => {
       vi.fn(() =>
         Promise.resolve({
           ok: true,
-          json: () =>
-            Promise.resolve({
-              duration_minutes: 12,
-              distance_miles: 3.4,
-              polyline: null,
-            }),
+          json: () => Promise.resolve({ reply: "Pike Place Market is 12 minutes away." }),
         })
       )
     );
 
     render(<App />);
-    fireEvent.change(screen.getByPlaceholderText("Enter a destination..."), {
-      target: { value: "current location to Pike Place Market" },
+    fireEvent.change(screen.getByPlaceholderText("Ask about places or directions..."), {
+      target: { value: "how long to Pike Place Market?" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Find Route" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    expect(fetch).toHaveBeenCalledWith(
-      "http://localhost:8000/routes/directions",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({
-          origin: { lat: 47.6062, lng: -122.3321 },
-          destination: "Pike Place Market",
-        }),
-      })
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.message).toBe("how long to Pike Place Market?");
+    expect(body.location).toEqual({ latitude: 47.6062, longitude: -122.3321 });
+    expect(body.thread_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     );
+    expect(
+      await screen.findByText("Pike Place Market is 12 minutes away.")
+    ).toBeInTheDocument();
   });
 });

@@ -8,11 +8,12 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.chat.chat import router as chat_router
 from app.api.exception_handlers import register_exception_handlers
 from app.api.places.google_places_router import router as places_router
 from app.api.routes.google_routes import router as google_routes_router
+from app.bootstrap import lifespan
 from app.core.config import settings
-from app.core.http_client import lifespan
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ app.add_middleware(
 )
 app.include_router(places_router)
 app.include_router(google_routes_router)
+app.include_router(chat_router)
 
 
 @app.middleware("http")

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
-from app.api.places.deps import get_google_place_service
+from app.bootstrap import get_google_place_service
 from app.contracts.coordinates import Coordinates
 from app.contracts.place import (
     PlaceNearbySearchRequest,

@@ -9,6 +9,9 @@ from app.contracts.coordinates import Coordinates
 
 class PlaceTextSearchRequest(BaseModel):
     text_query: str
+    # A soft preference, not a filter: Google can still return matches outside
+    # this area, and an explicit place in the query overrides it.
+    location_bias: Coordinates | None = None
 
     @field_validator("text_query")
     @classmethod

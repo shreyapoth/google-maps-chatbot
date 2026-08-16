@@ -3,13 +3,14 @@ from __future__ import annotations
 from pydantic import (
     BaseModel,
     field_validator,
+    Field
 )
 
 from app.contracts.coordinates import Coordinates
 
 class BasicRouteRequest(BaseModel):
     origin: Coordinates
-    destination: str
+    destination: Destination
 
     @field_validator("destination")
     def validate_destination(cls, v):
@@ -17,6 +18,8 @@ class BasicRouteRequest(BaseModel):
             raise ValueError("Destination is required")
         return v
 
+class Destination(BaseModel):
+    place_id: str = Field(alias="placeId")
 
 class BasicRouteResponse(BaseModel):
     duration_minutes: int

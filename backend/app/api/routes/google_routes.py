@@ -5,7 +5,7 @@ from fastapi import (
     Depends,
 )
 
-from app.api.routes.deps import get_google_routes_service
+from app.bootstrap import get_google_routes_service
 from app.contracts.route import (
     BasicRouteRequest,
     BasicRouteResponse,
